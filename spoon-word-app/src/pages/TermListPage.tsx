@@ -5,7 +5,7 @@ import TermCardWithTagsLazy from "../components/TermCardWithTagsLazy";
 import SpoonNoteModal from "../components/SpoonNoteModal";
 import { fetchTermsByTag } from "../api/termApi";
 import { fetchUserFolders, patchReorderFolders } from "../api/userWordbook";
-import { deleteUserFolder, renameUserFolder } from "../api/folder";
+import {deleteUserFolder, renameUserFolder} from "../api/folder";
 
 /* 타입 */
 type Term = { id: number; title: string; description: string; tags?: string[] };
@@ -228,8 +228,7 @@ const TermListPage: React.FC = () => {
         if (tag) sp.set("tag", tag);
         sp.set("page", String(nextZeroBased));
         sp.set("size", String(size || 20));
-        // 절대 경로로 이동 (상대 경로 중첩 방지)
-        navigate({ pathname: "/terms/by-tag", search: `?${sp.toString()}` });
+        navigate({ pathname: "terms/by-tag", search: `?${sp.toString()}` });
     };
 
     /* 카드 내 태그 클릭 → 같은 페이지에서 태그 교체 */
@@ -238,8 +237,7 @@ const TermListPage: React.FC = () => {
         sp.set("tag", t);
         sp.set("page", "0");
         sp.set("size", String(size || 20));
-        // 절대 경로로 이동
-        navigate({ pathname: "/terms/by-tag", search: `?${sp.toString()}` });
+        navigate({ pathname: "terms/by-tag", search: `?${sp.toString()}` });
     };
 
     /* --- 모달 제어 & 폴더 로딩 --- */
@@ -259,43 +257,25 @@ const TermListPage: React.FC = () => {
             try {
                 const list = await fetchUserFolders();
                 if (!aborted) setNotebooks(list);
-            } catch (e: any) {
-                // 401이면 로그인 페이지로 스무스하게 유도
-                if (e?.response?.status === 401) {
-                    if (!aborted) {
-                        setNotebooks([]);
-                        // 로그인 후 돌아올 위치를 알려주기
-                        const backTo = `/terms/by-tag?${new URLSearchParams({ tag, page: String(page), size: String(size) })}`;
-                        navigate("/login", { state: { from: backTo } });
-                    }
-                } else {
-                    if (!aborted) setNotebooks([]);
-                }
+            } catch {
+                if (!aborted) setNotebooks([]);
             }
         })();
         return () => { aborted = true; };
-    }, [modalOpen, navigate, page, size, tag]);
+    }, [modalOpen]);
 
     /* --- 모달 핸들러들 --- */
     // 저장 버튼: 실제 attach API 연동 지점
     const handleSaveToNotebook = async (notebookId: string) => {
         if (!selectedTermId) return;
-        // TODO: attachTermToFolder 호출로 교체
+        // TODO: 백엔드 attach API 붙이면 호출
         // await attachTermToFolder({ termId: selectedTermId, folderId: notebookId });
         closeModal();
     };
 
     const handleReorder = async (orderedIds: string[]) => {
-        try {
-            await patchReorderFolders(orderedIds);
-        } catch (e: any) {
-            if (e?.response?.status === 401) {
-                const backTo = `/terms/by-tag?${new URLSearchParams({ tag, page: String(page), size: String(size) })}`;
-                navigate("/login", { state: { from: backTo } });
-            } else {
-                console.warn("[folders reorder] 실패", e);
-            }
-        }
+        try { await patchReorderFolders(orderedIds); }
+        catch (e) { console.warn("[folders reorder] 실패", e); }
     };
 
     const handleRequestRename = React.useCallback(
@@ -311,21 +291,19 @@ const TermListPage: React.FC = () => {
 
             try {
                 await renameUserFolder(folderId, raw);
+                // 최신 목록 반영: 재조회 또는 로컬 업데이트 중 택1
                 const list = await fetchUserFolders();
                 setNotebooks(list);
             } catch (e: any) {
                 const s = e?.response?.status;
-                if (s === 401) {
-                    const backTo = `/terms/by-tag?${new URLSearchParams({ tag, page: String(page), size: String(size) })}`;
-                    navigate("/login", { state: { from: backTo } });
-                } else if (s === 409) alert("동일한 이름의 폴더가 이미 존재합니다.");
+                if (s === 409) alert("동일한 이름의 폴더가 이미 존재합니다.");
                 else if (s === 400) alert("폴더 이름 형식이 올바르지 않습니다.");
                 else if (s === 403) alert("이 폴더에 대한 권한이 없습니다.");
                 else if (s === 404) alert("폴더를 찾을 수 없습니다.");
                 else alert("폴더 이름 변경에 실패했습니다. 잠시 후 다시 시도해 주세요.");
             }
         },
-        [notebooks, normalize, navigate, page, size, tag]
+        [notebooks, normalize]
     );
 
     return (
@@ -385,6 +363,7 @@ const TermListPage: React.FC = () => {
                     setNotebooks(prev => prev.map(n => n.id === folderId ? ({ ...n, name: newName }) : n));
                 }}
                 onGoToFolder={(fid, name) => {
+                    // 폴더 상세 페이지로 이동하고 모달 닫기
                     setModalOpen(false);
                     navigate(`/spoon-word/folders/${fid}`, { state: { folderName: name } });
                 }}

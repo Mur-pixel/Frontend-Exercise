@@ -1,44 +1,39 @@
-// src/api/termApi.ts
 import axiosInstance from "./axiosInstance";
 
-/** 일반 검색: /api/terms/search (UI 0-base → 서버 1-base) */
-export const searchTerms = async (params: {
-    q?: string;
-    page?: number;   // 0-base (UI)
-    size?: number;
-    initial?: string;
-    alpha?: string;
-    symbol?: string;
-    catPath?: string;
-}) => {
-    const {
-        q = "",
-        page = 0,
-        size = 20,
-        initial = "",
-        alpha = "",
-        symbol = "",
-        catPath = "",
-    } = params || {};
-
-    const { data } = await axiosInstance.get("/api/terms/search", {
-        params: {
-            q,
-            page: page + 1, // 👈 서버 1-base
-            size,
-            initial,
-            alpha,
-            symbol,
-            catPath,
-        },
-    });
-    return data;
+type Term = {
+    id: number | string;
+    title: string;
+    description?: string | null;
+    tags?: string[] | null;
 };
 
-/** 태그 검색: /api/terms/search/by-tag (서버 1-base) */
-export const fetchTermsByTag = async (tag: string, page = 1, size = 10) => {
-    const { data } = await axiosInstance.get("/api/terms/search/by-tag", {
-        params: { tag, page, size },
+type SearchByTagResponse = {
+    page?: number;
+    size?: number;
+    total?: number;
+    items?: Term[];
+    content?: Term[];
+    totalElements?: number;
+};
+
+export const fetchTermsByTag = async (
+    tag: string,
+    page = 0,
+    size = 20
+): Promise<SearchByTagResponse> => {
+    if (!tag || !tag.trim()) {
+        // 빈 태그 방지: 필요 시 빈 결과 형식으로 반환
+        return { page, size, total: 0, items: [] };
+    }
+
+    // encodeURIComponent로 안전하게 전달
+    const { data } = await axiosInstance.get<SearchByTagResponse>("/terms/search/by-tag", {
+        params: { tag: tag.trim(), page, size },
     });
-    return data;
+
+    // 응답 키가 섞여 들어오는 경우 일관 포맷으로 정규화
+    const items = data.items ?? data.content ?? [];
+    const total = data.total ?? data.totalElements ?? items.length;
+
+    return { ...data, items, total };
 };

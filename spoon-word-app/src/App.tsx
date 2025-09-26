@@ -6,7 +6,7 @@ import ExploreFilterBar, { FilterSelection } from "./components/ExploreFilterBar
 import SearchPage from "./pages/SearchPage";
 import TermListPage from "./pages/TermListPage";
 import SpoonNoteModal from "./components/SpoonNoteModal";
-import http from "./utils/http"; // authHeader 제거
+import http from "./utils/http";
 import { fetchUserFolders, patchReorderFolders } from "./api/userWordbook";
 import WordbookFolderPage from "./pages/WordbookFolderPage";
 import FavoriteTermsPage from "./pages/FavoriteTermsPage.tsx";
@@ -144,7 +144,7 @@ function AppLayout() {
             if (localDup) throw new Error("DUPLICATE_LOCAL");
 
             try {
-                const { data } = await http.post("/api/me/folders", { folderName: raw });
+                const { data } = await http.post("/me/folders", { folderName: raw });
                 const newId: string = String(data.id);
                 const newName: string = data.folderName ?? raw;
                 setNotebooks((prev) => [{ id: newId, name: newName }, ...prev]);
@@ -167,7 +167,7 @@ function AppLayout() {
             if (!selectedTermId) return;
 
             try {
-                await http.post(`/api/me/folders/${notebookId}/terms`, { termId: selectedTermId });
+                await http.post(`/me/folders/${notebookId}/terms`, { termId: selectedTermId });
                 console.debug("[attach] term", selectedTermId, "-> folder", notebookId, "OK");
                 closeModal();
             } catch (err: any) {
